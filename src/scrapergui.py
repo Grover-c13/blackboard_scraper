@@ -20,6 +20,7 @@ import functools
 from io import open as iopen
 from urlparse import urlsplit
 import platform
+os.environ['REQUESTS_CA_BUNDLE'] = "certifi/cacert.pem"
 if "Darwin" in platform.system():
         os.system('''/usr/bin/osascript -e 'tell app "Finder" to set frontmost of process "Python" to true' ''')
 
@@ -138,10 +139,8 @@ class BlackboardUnit():
         self.name = sanitize(self.name)
         urlResponse = self.session.get(file_url, allow_redirects=False)
         if urlResponse.status_code == 302:
-            urlpath = urlResponse.headers['location']
-        else: 
-            urlpath = urlResponse.url
-            
+            urlpath = urlResponse.url + "/" + urlResponse.headers['location']
+       
         if len(folder_name) > 0:
             thepath = path + '/' + self.name + '/' + folder_name + '/'
         else:
@@ -261,14 +260,16 @@ class BlackboardSession():
             'encoded_pw': self.password,
             }
         self.url = 'https://lms.curtin.edu.au/webapps/login/'
-        self.session.post(self.url, data=self.payload)
+        response = self.session.post(self.url, data=self.payload)
+        print(response.status_code)
         self.getUnitList()
         self.getILectureList()
         
     #gets all available units for current logged in user
     def getUnitList(self):
-        response = self.session.get('https://lms.curtin.edu.au/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_3_1')
-        soup = BeautifulSoup(response.text, "html.parser")
+        response = self.session.get('https://lms.curtin.edu.au/webapps/portal/execute/tabs/tabAction?action=refreshAjaxModule&modId=_27_1&tabId=_1_1&tab_tab_group_id=_84_1')
+        data = response.text.replace("<?xml version=\"1.0\"?>", "").replace("<contents><![CDATA[", "").replace("]]></contents>", "")  # hack it
+        soup = BeautifulSoup(data, "html.parser")
         for htmlLink in soup.find_all('a'):
             link = htmlLink.get('href')
             if link.startswith(' /webapps/blackboard/execute/launcher?type=Course'
